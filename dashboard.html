@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Smart Farm Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root{
+ --sky:#8AA7A8;
+ --forest:#3F441C;
+ --cream:#ECE5D1;
+ --sand:#B0A374;
+ --orange:#D68737;
+}
+
+body{margin:0;font-family:Arial;background:var(--cream)}
+body.flash{animation:flash .6s infinite alternate}
+@keyframes flash{from{background:white}to{background:#ff4d4d}}
+
+header{background:var(--forest);color:white;padding:15px;text-align:center;font-size:22px}
+
+.container{padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px}
+
+.card{background:white;border-radius:12px;padding:15px;box-shadow:0 4px 10px rgba(0,0,0,.1)}
+
+.value{font-size:26px;color:var(--orange)}
+
+.controls{text-align:center;padding:20px}
+
+button{padding:12px 25px;border:none;border-radius:25px;margin:10px;font-size:16px;cursor:pointer}
+
+.on{background:var(--orange);color:white}
+.off{background:var(--sand)}
+.download{background:var(--sky);color:white}
+
+.graphs{padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+
+.alertBox{background:#d9534f;color:white;padding:15px;border-radius:10px;margin:20px;display:none}
+
+canvas{max-height:240px}
+</style>
+</head>
+
+<body>
+
+<header>🌱 Smart Farm Dashboard</header>
+
+<div id="alertBox" class="alertBox">
+<b id="alertTitle"></b><br>
+<span id="alertMsg"></span><br><br>
+<button onclick="ack()">Acknowledge Alert</button>
+</div>
+
+<div class="container">
+<div class="card">Flow<div class="value"><span id="flow">0</span> L/min</div></div>
+<div class="card">Current<div class="value"><span id="current">0</span> A</div></div>
+<div class="card">Voltage<div class="value"><span id="voltage">0</span> V</div></div>
+</div>
+
+<div class="controls">
+<button class="on" onclick="pumpOn()">Pump ON</button>
+<button class="off" onclick="pumpOff()">Pump OFF</button>
+<button class="download" onclick="downloadCSV()">CSV</button>
+<a href="history.html">Alert History</a><br>
+Pump: <span id="pump">OFF</span>
+</div>
+
+<div class="graphs">
+<div class="card"><canvas id="flowChart"></canvas></div>
+<div class="card"><canvas id="currentChart"></canvas></div>
+<div class="card"><canvas id="voltageChart"></canvas></div>
+</div>
+
+<button id="soundBtn" style="position:fixed;bottom:10px;right:10px">Enable Sound</button>
+<audio id="alarm" src="alarm.mp3" preload="auto" loop></audio>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+firebase.initializeApp({
+ apiKey:"AIzaSyDusRSoUQ7rM4HCZXUdMOY_zBr5a4mpLYw",
+ databaseURL:"https://farm-demo-f693c-default-rtdb.asia-southeast1.firebasedatabase.app"
+});
+
+const db=firebase.database();
+const alarm=document.getElementById("alarm");
+let sound=false,critical=false,currentAlertKey=null;
+
+soundBtn.onclick=()=>{alarm.play();alarm.pause();sound=true;alert("Sound Enabled")};
+
+function chart(id,label,color){
+ return new Chart(document.getElementById(id),{
+  type:"line",
+  data:{labels:[],datasets:[{label:label,data:[],borderColor:color,tension:.3}]},
+  options:{animation:false}
+ });
+}
+
+const fC=chart("flowChart","Flow","#D68737");
+const cC=chart("currentChart","Current","#3F441C");
+const vC=chart("voltageChart","Voltage","#8AA7A8");
+
+function push(c,v,t){
+ if(c.data.labels.length>30){c.data.labels.shift();c.data.datasets[0].data.shift();}
+ c.data.labels.push(new Date(t*1000).toLocaleTimeString());
+ c.data.datasets[0].data.push(v);
+ c.update();
+}
+
+db.ref("farm/logs").limitToLast(30).on("child_added",s=>{
+ const d=s.val();
+ flow.innerHTML=d.flowRate;
+ current.innerHTML=d.current;
+ voltage.innerHTML=d.voltage;
+ push(fC,d.flowRate,d.time);
+ push(cC,d.current,d.time);
+ push(vC,d.voltage,d.time);
+});
+
+db.ref("farm/pump").on("value",s=>pump.innerHTML=s.val()==1?"ON":"OFF");
+
+pumpOn=()=>db.ref("farm/pump").set(1);
+pumpOff=()=>db.ref("farm/pump").set(0);
+
+db.ref("farm/alerts").limitToLast(1).on("child_added",s=>{
+ const a=s.val();
+ currentAlertKey=s.key;
+ alertBox.style.display="block";
+ alertTitle.innerHTML=a.type;
+ alertMsg.innerHTML=a.message;
+ if(a.severity=="CRITICAL"){
+  document.body.classList.add("flash");
+  critical=true;
+  if(sound){alarm.currentTime=0;alarm.play();}
+ }
+});
+
+function ack(){
+ if(!currentAlertKey)return;
+ db.ref("farm/alerts/"+currentAlertKey).remove();
+ alertBox.style.display="none";
+ document.body.classList.remove("flash");
+ alarm.pause();alarm.currentTime=0;
+ critical=false;
+}
+
+function downloadCSV(){
+ db.ref("farm/logs").once("value",snap=>{
+ let csv="time,flow,current,voltage\n";
+ snap.forEach(c=>{
+  const d=c.val();
+  csv+=`${new Date(d.time*1000)},${d.flowRate},${d.current},${d.voltage}\n`;
+ });
+ const a=document.createElement("a");
+ a.href=URL.createObjectURL(new Blob([csv]));
+ a.download="farm.csv";
+ a.click();
+});
+}
+</script>
+</body>
+</html>

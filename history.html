@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Smart Farm - Alert History</title>
+
+<style>
+:root{
+ --sky:#8AA7A8;
+ --forest:#3F441C;
+ --cream:#ECE5D1;
+ --sand:#B0A374;
+ --orange:#D68737;
+}
+
+body{
+ margin:0;
+ font-family:Arial;
+ background:var(--cream);
+}
+
+header{
+ background:var(--forest);
+ color:white;
+ padding:15px;
+ text-align:center;
+ font-size:22px;
+}
+
+.container{
+ padding:20px;
+}
+
+.card{
+ background:white;
+ border-radius:12px;
+ padding:15px;
+ margin-bottom:15px;
+ box-shadow:0 4px 10px rgba(0,0,0,.1);
+}
+
+.alert{
+ padding:12px;
+ border-radius:8px;
+ margin-bottom:10px;
+ color:white;
+ font-weight:bold;
+}
+
+.CRITICAL{background:#d9534f;}
+.WARNING{background:#f0ad4e;}
+.INFO{background:#5cb85c;}
+
+.controls{
+ text-align:center;
+ margin:20px;
+}
+
+button{
+ padding:10px 20px;
+ border:none;
+ border-radius:20px;
+ background:var(--sky);
+ color:white;
+ font-size:14px;
+ cursor:pointer;
+}
+
+a{
+ display:inline-block;
+ margin-top:10px;
+ text-decoration:none;
+ color:var(--forest);
+ font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<header>🌱 Smart Farm - Alert History</header>
+
+<div class="controls">
+<button onclick="downloadCSV()">Download CSV</button><br>
+<a href="dashboard.html">← Back to Dashboard</a>
+</div>
+
+<div class="container">
+<div class="card">
+<h3>📜 Past Alerts</h3>
+<div id="historyList"></div>
+</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+firebase.initializeApp({
+ apiKey:"AIzaSyDusRSoUQ7rM4HCZXUdMOY_zBr5a4mpLYw",
+ databaseURL:"https://farm-demo-f693c-default-rtdb.asia-southeast1.firebasedatabase.app"
+});
+
+const db = firebase.database();
+const historyList = document.getElementById("historyList");
+
+// Load alerts newest first
+db.ref("farm/alertHistory").on("child_added", snap => {
+ const a = snap.val();
+ if(!a) return;
+
+ const div = document.createElement("div");
+ div.className = "alert " + (a.severity || "INFO");
+
+ const time = a.time ? new Date(a.time*1000).toLocaleString() : "No time";
+
+ div.innerHTML = `
+   ${a.type || "Unknown"}<br>
+   ${a.message || ""}<br>
+   <small>${time}</small>
+ `;
+
+ historyList.prepend(div);
+});
+
+// Download CSV
+function downloadCSV(){
+ db.ref("farm/alertHistory").once("value", snap=>{
+  let csv="time,type,message,severity\n";
+
+  snap.forEach(c=>{
+   const d=c.val();
+   if(!d) return;
+
+   const time = d.time ? new Date(d.time*1000).toISOString() : "";
+   const type = d.type || "";
+   const msg = d.message || "";
+   const sev = d.severity || "";
+
+   csv += `"${time}","${type}","${msg}","${sev}"\n`;
+  });
+
+  const blob=new Blob([csv],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="alert_history.csv";
+  a.click();
+ });
+}
+</script>
+
+</body>
+</html>
