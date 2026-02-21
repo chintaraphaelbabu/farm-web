@@ -19,25 +19,54 @@ body.flash{animation:flash .6s infinite alternate}
 
 header{background:var(--forest);color:white;padding:15px;text-align:center;font-size:22px}
 
-.container{padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px}
+.container{
+ padding:20px;
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+ gap:15px
+}
 
-.card{background:white;border-radius:12px;padding:15px;box-shadow:0 4px 10px rgba(0,0,0,.1)}
+.card{
+ background:white;
+ border-radius:12px;
+ padding:15px;
+ box-shadow:0 4px 10px rgba(0,0,0,.1)
+}
 
 .value{font-size:26px;color:var(--orange)}
 
 .controls{text-align:center;padding:20px}
-
 button{padding:12px 25px;border:none;border-radius:25px;margin:10px;font-size:16px;cursor:pointer}
-
 .on{background:var(--orange);color:white}
 .off{background:var(--sand)}
 .download{background:var(--sky);color:white}
+.logout{background:#d9534f;color:white}
 
-.graphs{padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.graphs{
+ padding:20px;
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+ gap:20px
+}
 
-.alertBox{background:#d9534f;color:white;padding:15px;border-radius:10px;margin:20px;display:none}
+.alertBox{
+ background:#d9534f;
+ color:white;
+ padding:15px;
+ border-radius:10px;
+ margin:20px;
+ display:none
+}
 
 canvas{max-height:240px}
+
+#soundBtn{
+ position:fixed;
+ bottom:10px;
+ right:10px;
+ background:#444;
+ color:white;
+}
 </style>
 </head>
 
@@ -55,12 +84,14 @@ canvas{max-height:240px}
 <div class="card">Flow<div class="value"><span id="flow">0</span> L/min</div></div>
 <div class="card">Current<div class="value"><span id="current">0</span> A</div></div>
 <div class="card">Voltage<div class="value"><span id="voltage">0</span> V</div></div>
+<div class="card">Efficiency<div class="value"><span id="efficiency">0</span> %</div></div>
 </div>
 
 <div class="controls">
 <button class="on" onclick="pumpOn()">Pump ON</button>
 <button class="off" onclick="pumpOff()">Pump OFF</button>
 <button class="download" onclick="downloadCSV()">CSV</button>
+<button class="logout" onclick="logout()">Logout</button>
 <a href="history.html">Alert History</a><br>
 Pump: <span id="pump">OFF</span>
 </div>
@@ -69,27 +100,54 @@ Pump: <span id="pump">OFF</span>
 <div class="card"><canvas id="flowChart"></canvas></div>
 <div class="card"><canvas id="currentChart"></canvas></div>
 <div class="card"><canvas id="voltageChart"></canvas></div>
+<div class="card"><canvas id="effChart"></canvas></div>
 </div>
 
-<button id="soundBtn" style="position:fixed;bottom:10px;right:10px">Enable Sound</button>
-<audio id="alarm" src="alarm.mp3" preload="auto" loop></audio>
+<button id="soundBtn">Enable Sound</button>
+<audio id="alarm" src="alarm.mp3" loop></audio>
 
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <script>
-firebase.initializeApp({
- apiKey:"AIzaSyDusRSoUQ7rM4HCZXUdMOY_zBr5a4mpLYw",
- databaseURL:"https://farm-demo-f693c-default-rtdb.asia-southeast1.firebasedatabase.app"
-});
+const firebaseConfig = {
+  apiKey: "AIzaSyDusRSoUQ7rM4HCZXUdMOY_zBr5a4mpLYw",
+  authDomain: "farm-demo-f693c.firebaseapp.com",
+  databaseURL: "https://farm-demo-f693c-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "farm-demo-f693c"
+};
 
+firebase.initializeApp(firebaseConfig);
+
+const auth=firebase.auth();
 const db=firebase.database();
 const alarm=document.getElementById("alarm");
-let sound=false,critical=false,currentAlertKey=null;
 
-soundBtn.onclick=()=>{alarm.play();alarm.pause();sound=true;alert("Sound Enabled")};
+let soundUnlocked=false;
+let activeAlertKey=null;
 
-function chart(id,label,color){
+/* AUTH */
+auth.onAuthStateChanged(user=>{
+ if(!user) location.href="login.html";
+});
+
+function logout(){
+ auth.signOut().then(()=>location.href="login.html");
+}
+
+/* SOUND */
+soundBtn.onclick=()=>{
+ alarm.play().then(()=>{
+   alarm.pause();
+   alarm.currentTime=0;
+   soundUnlocked=true;
+   soundBtn.innerHTML="Sound Enabled ✔";
+ });
+};
+
+/* CHART CREATOR */
+function createChart(id,label,color){
  return new Chart(document.getElementById(id),{
   type:"line",
   data:{labels:[],datasets:[{label:label,data:[],borderColor:color,tension:.3}]},
@@ -97,67 +155,84 @@ function chart(id,label,color){
  });
 }
 
-const fC=chart("flowChart","Flow","#D68737");
-const cC=chart("currentChart","Current","#3F441C");
-const vC=chart("voltageChart","Voltage","#8AA7A8");
+const fC=createChart("flowChart","Flow","#D68737");
+const cC=createChart("currentChart","Current","#3F441C");
+const vC=createChart("voltageChart","Voltage","#8AA7A8");
+const eC=createChart("effChart","Efficiency","#ff33aa");
 
-function push(c,v,t){
- if(c.data.labels.length>30){c.data.labels.shift();c.data.datasets[0].data.shift();}
- c.data.labels.push(new Date(t*1000).toLocaleTimeString());
- c.data.datasets[0].data.push(v);
- c.update();
+function push(chart,val,time){
+ if(chart.data.labels.length>30){
+   chart.data.labels.shift();
+   chart.data.datasets[0].data.shift();
+ }
+ chart.data.labels.push(new Date(time*1000).toLocaleTimeString());
+ chart.data.datasets[0].data.push(val);
+ chart.update();
 }
 
-db.ref("farm/logs").limitToLast(30).on("child_added",s=>{
- const d=s.val();
- flow.innerHTML=d.flowRate;
- current.innerHTML=d.current;
- voltage.innerHTML=d.voltage;
- push(fC,d.flowRate,d.time);
- push(cC,d.current,d.time);
- push(vC,d.voltage,d.time);
+/* LOG LISTENER */
+db.ref("farm/logs").limitToLast(30).on("child_added",snap=>{
+ const d=snap.val();
+ flow.innerHTML=d.flowRate??0;
+ current.innerHTML=d.current??0;
+ voltage.innerHTML=d.voltage??0;
+ efficiency.innerHTML=d.efficiency??0;
+
+ if(d.time){
+   push(fC,d.flowRate,d.time);
+   push(cC,d.current,d.time);
+   push(vC,d.voltage,d.time);
+   push(eC,d.efficiency,d.time);
+ }
 });
 
+/* PUMP */
+function pumpOn(){db.ref("farm/pump").set(1);}
+function pumpOff(){db.ref("farm/pump").set(0);}
 db.ref("farm/pump").on("value",s=>pump.innerHTML=s.val()==1?"ON":"OFF");
 
-pumpOn=()=>db.ref("farm/pump").set(1);
-pumpOff=()=>db.ref("farm/pump").set(0);
+/* ALERT */
+db.ref("farm/alerts").on("child_added",snap=>{
+ const a=snap.val();
+ activeAlertKey=snap.key;
 
-db.ref("farm/alerts").limitToLast(1).on("child_added",s=>{
- const a=s.val();
- currentAlertKey=s.key;
  alertBox.style.display="block";
  alertTitle.innerHTML=a.type;
  alertMsg.innerHTML=a.message;
- if(a.severity=="CRITICAL"){
+
+ if(a.severity==="CRITICAL"){
   document.body.classList.add("flash");
-  critical=true;
-  if(sound){alarm.currentTime=0;alarm.play();}
+  if(soundUnlocked){
+   alarm.currentTime=0;
+   alarm.play();
+  }
  }
 });
 
 function ack(){
- if(!currentAlertKey)return;
- db.ref("farm/alerts/"+currentAlertKey).remove();
+ if(!activeAlertKey)return;
+ db.ref("farm/alerts/"+activeAlertKey).remove();
  alertBox.style.display="none";
  document.body.classList.remove("flash");
- alarm.pause();alarm.currentTime=0;
- critical=false;
+ alarm.pause();
+ alarm.currentTime=0;
 }
 
+/* CSV */
 function downloadCSV(){
  db.ref("farm/logs").once("value",snap=>{
- let csv="time,flow,current,voltage\n";
- snap.forEach(c=>{
-  const d=c.val();
-  csv+=`${new Date(d.time*1000)},${d.flowRate},${d.current},${d.voltage}\n`;
+  let csv="time,flow,current,voltage,efficiency\n";
+  snap.forEach(c=>{
+   const d=c.val();
+   csv+=`${new Date(d.time*1000)},${d.flowRate},${d.current},${d.voltage},${d.efficiency}\n`;
+  });
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv]));
+  a.download="farm.csv";
+  a.click();
  });
- const a=document.createElement("a");
- a.href=URL.createObjectURL(new Blob([csv]));
- a.download="farm.csv";
- a.click();
-});
 }
 </script>
+
 </body>
 </html>

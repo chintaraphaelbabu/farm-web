@@ -66,6 +66,8 @@ button{
  cursor:pointer;
 }
 
+.logout{background:#d9534f;}
+
 a{
  display:inline-block;
  margin-top:10px;
@@ -81,7 +83,8 @@ a{
 <header>🌱 Smart Farm - Alert History</header>
 
 <div class="controls">
-<button onclick="downloadCSV()">Download CSV</button><br>
+<button onclick="downloadCSV()">Download CSV</button>
+<button class="logout" onclick="logout()">Logout</button><br>
 <a href="dashboard.html">← Back to Dashboard</a>
 </div>
 
@@ -93,53 +96,60 @@ a{
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <script>
-firebase.initializeApp({
- apiKey:"AIzaSyDusRSoUQ7rM4HCZXUdMOY_zBr5a4mpLYw",
- databaseURL:"https://farm-demo-f693c-default-rtdb.asia-southeast1.firebasedatabase.app"
+const firebaseConfig = {
+  apiKey: "AIzaSyDusRSoUQ7rM4HCZXUdMOY_zBr5a4mpLYw",
+  authDomain: "farm-demo-f693c.firebaseapp.com",
+  databaseURL: "https://farm-demo-f693c-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "farm-demo-f693c"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.database();
+
+auth.onAuthStateChanged(user=>{
+  if(!user){
+    location.href="login.html";
+  }
 });
 
-const db = firebase.database();
-const historyList = document.getElementById("historyList");
+function logout(){
+  auth.signOut().then(()=>{
+    location.href="login.html";
+  });
+}
 
-// Load alerts newest first
-db.ref("farm/alertHistory").on("child_added", snap => {
- const a = snap.val();
+const historyList=document.getElementById("historyList");
+
+db.ref("farm/alertHistory").on("child_added",snap=>{
+ const a=snap.val();
  if(!a) return;
 
- const div = document.createElement("div");
- div.className = "alert " + (a.severity || "INFO");
+ const div=document.createElement("div");
+ div.className="alert "+(a.severity||"INFO");
 
- const time = a.time ? new Date(a.time*1000).toLocaleString() : "No time";
+ const time=a.time?new Date(a.time*1000).toLocaleString():"";
 
- div.innerHTML = `
-   ${a.type || "Unknown"}<br>
-   ${a.message || ""}<br>
+ div.innerHTML=`
+   ${a.type||""}<br>
+   ${a.message||""}<br>
    <small>${time}</small>
  `;
-
  historyList.prepend(div);
 });
 
-// Download CSV
 function downloadCSV(){
- db.ref("farm/alertHistory").once("value", snap=>{
+ db.ref("farm/alertHistory").once("value",snap=>{
   let csv="time,type,message,severity\n";
-
   snap.forEach(c=>{
    const d=c.val();
-   if(!d) return;
-
-   const time = d.time ? new Date(d.time*1000).toISOString() : "";
-   const type = d.type || "";
-   const msg = d.message || "";
-   const sev = d.severity || "";
-
-   csv += `"${time}","${type}","${msg}","${sev}"\n`;
+   csv+=`"${new Date(d.time*1000).toISOString()}","${d.type}","${d.message}","${d.severity}"\n`;
   });
-
   const blob=new Blob([csv],{type:"text/csv"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);

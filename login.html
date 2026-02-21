@@ -67,7 +67,6 @@ button:hover{
  color:#777;
 }
 </style>
-
 </head>
 
 <body>
@@ -87,26 +86,28 @@ button:hover{
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
 <script>
-    const firebaseConfig = {
+const firebaseConfig = {
   apiKey: "AIzaSyDusRSoUQ7rM4HCZXUdMOY_zBr5a4mpLYw",
   authDomain: "farm-demo-f693c.firebaseapp.com",
   databaseURL: "https://farm-demo-f693c-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "farm-demo-f693c",
-  storageBucket: "farm-demo-f693c.firebasestorage.app",
-  messagingSenderId: "317641630684",
-  appId: "1:317641630684:web:4f74f52736b1aa6dd72519"
+  projectId: "farm-demo-f693c"
 };
-
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 
+// Auto redirect if already logged in
+auth.onAuthStateChanged(user=>{
+  if(user){
+    location.href="dashboard.html";
+  }
+});
+
 function login(){
- auth.signInWithEmailAndPassword(
-   email.value,password.value
- ).then(()=>{
-   location.href="dashboard.html";
- }).catch(e=>alert(e.message));
+  auth.signInWithEmailAndPassword(
+    document.getElementById("email").value,
+    document.getElementById("password").value
+  ).catch(e=>alert(e.message));
 }
 </script>
 
