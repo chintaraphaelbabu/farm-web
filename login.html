@@ -2,114 +2,62 @@
 <html>
 <head>
 <title>Smart Farm Login</title>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root{
- --sky:#8AA7A8;
- --forest:#3F441C;
- --cream:#ECE5D1;
- --sand:#B0A374;
- --orange:#D68737;
-}
-
-body{
- margin:0;
- height:100vh;
- display:flex;
- justify-content:center;
- align-items:center;
- background:linear-gradient(135deg,var(--sky),var(--cream));
- font-family:Arial, sans-serif;
-}
-
-.card{
- background:white;
- padding:30px;
- border-radius:15px;
- width:300px;
- box-shadow:0 10px 25px rgba(0,0,0,.2);
- text-align:center;
-}
-
-h2{
- margin-top:0;
- color:var(--forest);
-}
-
-input{
- width:100%;
- padding:10px;
- margin:10px 0;
- border-radius:8px;
- border:1px solid #ccc;
- font-size:14px;
-}
-
-button{
- width:100%;
- padding:12px;
- border:none;
- border-radius:25px;
- background:var(--orange);
- color:white;
- font-size:16px;
- cursor:pointer;
- margin-top:10px;
-}
-
-button:hover{
- opacity:.9;
-}
-
-.footer{
- margin-top:15px;
- font-size:12px;
- color:#777;
-}
+:root{--sky:#8AA7A8;--forest:#3F441C;--cream:#ECE5D1;--sand:#B0A374;--orange:#D68737;}
+*{box-sizing:border-box;}
+body{margin:0;height:100vh;display:flex;justify-content:center;align-items:center;
+  background:linear-gradient(135deg,var(--sky),var(--cream));font-family:Arial,sans-serif;}
+.card{background:white;padding:30px;border-radius:15px;width:300px;
+  box-shadow:0 10px 25px rgba(0,0,0,.2);text-align:center;}
+h2{margin-top:0;color:var(--forest);}
+input{width:100%;padding:10px;margin:10px 0;border-radius:8px;border:1px solid #ccc;font-size:14px;}
+button{width:100%;padding:12px;border:none;border-radius:25px;background:var(--orange);
+  color:white;font-size:16px;cursor:pointer;margin-top:10px;}
+button:hover{opacity:.9;} button:disabled{opacity:.6;cursor:not-allowed;}
+.footer{margin-top:15px;font-size:12px;color:#777;}
+#error{color:#d9534f;font-size:13px;margin-top:8px;display:none;}
 </style>
 </head>
-
 <body>
-
 <div class="card">
-<h2>🌱 Smart Farm</h2>
-
-<input id="email" placeholder="Email">
-<input id="password" type="password" placeholder="Password">
-
-<button onclick="login()">Login</button>
-
-<div class="footer">Secure Cloud Access</div>
+  <h2>🌱 Smart Farm</h2>
+  <input id="email" type="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+  <div id="error"></div>
+  <button id="loginBtn" onclick="login()">Login</button>
+  <div class="footer">Secure Cloud Access</div>
 </div>
-
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyDusRSoUQ7rM4HCZXUdMOY_zBr5a4mpLYw",
-  authDomain: "farm-demo-f693c.firebaseapp.com",
-  databaseURL: "https://farm-demo-f693c-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "farm-demo-f693c"
-};
+const SUPABASE_URL = "https://igkzwbazvotgexzjeoxb.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlna3p3YmF6dm90Z2V4emplb3hiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3OTYxOTIsImV4cCI6MjA5MjM3MjE5Mn0.xdXPVMeC12SszIwoh3PkM3xaEbsuj6HQDBxoEHL9TDo";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-
-// Auto redirect if already logged in
-auth.onAuthStateChanged(user=>{
-  if(user){
-    location.href="dashboard.html";
-  }
+sb.auth.getSession().then(({ data }) => {
+  if (data.session) location.href = "dashboard.html";
 });
 
-function login(){
-  auth.signInWithEmailAndPassword(
-    document.getElementById("email").value,
-    document.getElementById("password").value
-  ).catch(e=>alert(e.message));
+function showError(msg) {
+  const el = document.getElementById("error");
+  el.textContent = msg; el.style.display = "block";
 }
-</script>
 
+async function login() {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  const btn = document.getElementById("loginBtn");
+  if (!email || !password) { showError("Please enter email and password."); return; }
+  btn.disabled = true; btn.textContent = "Logging in...";
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) {
+    const m = {"Invalid login credentials":"Incorrect email or password.","Email not confirmed":"Please confirm your email first."};
+    showError(m[error.message] || error.message);
+    btn.disabled = false; btn.textContent = "Login";
+  } else {
+    location.href = "dashboard.html";
+  }
+}
+document.addEventListener("keydown", e => { if (e.key === "Enter") login(); });
+</script>
 </body>
 </html>
