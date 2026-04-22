@@ -3,161 +3,91 @@
 <head>
 <meta charset="UTF-8">
 <title>Smart Farm - Alert History</title>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root{
- --sky:#8AA7A8;
- --forest:#3F441C;
- --cream:#ECE5D1;
- --sand:#B0A374;
- --orange:#D68737;
-}
-
-body{
- margin:0;
- font-family:Arial;
- background:var(--cream);
-}
-
-header{
- background:var(--forest);
- color:white;
- padding:15px;
- text-align:center;
- font-size:22px;
-}
-
-.container{
- padding:20px;
-}
-
-.card{
- background:white;
- border-radius:12px;
- padding:15px;
- margin-bottom:15px;
- box-shadow:0 4px 10px rgba(0,0,0,.1);
-}
-
-.alert{
- padding:12px;
- border-radius:8px;
- margin-bottom:10px;
- color:white;
- font-weight:bold;
-}
-
-.CRITICAL{background:#d9534f;}
-.WARNING{background:#f0ad4e;}
-.INFO{background:#5cb85c;}
-
-.controls{
- text-align:center;
- margin:20px;
-}
-
-button{
- padding:10px 20px;
- border:none;
- border-radius:20px;
- background:var(--sky);
- color:white;
- font-size:14px;
- cursor:pointer;
-}
-
-.logout{background:#d9534f;}
-
-a{
- display:inline-block;
- margin-top:10px;
- text-decoration:none;
- color:var(--forest);
- font-weight:bold;
-}
+:root{--sky:#8AA7A8;--forest:#3F441C;--cream:#ECE5D1;--sand:#B0A374;--orange:#D68737;}
+*{box-sizing:border-box;}
+body{margin:0;font-family:Arial;background:var(--cream);}
+header{background:var(--forest);color:white;padding:15px;text-align:center;font-size:22px;}
+.container{padding:20px;}
+.card{background:white;border-radius:12px;padding:15px;margin-bottom:15px;box-shadow:0 4px 10px rgba(0,0,0,.1);}
+.alert{padding:12px;border-radius:8px;margin-bottom:10px;color:white;font-weight:bold;}
+.CRITICAL{background:#d9534f;} .WARNING{background:#f0ad4e;} .INFO{background:#5cb85c;}
+.HIGH{background:#d9534f;} .MEDIUM{background:#f0ad4e;} .LOW{background:#5cb85c;}
+.empty{text-align:center;color:#aaa;padding:20px;font-style:italic;}
+.controls{text-align:center;margin:20px;display:flex;justify-content:center;flex-wrap:wrap;gap:10px;align-items:center;}
+button{padding:10px 20px;border:none;border-radius:20px;background:var(--sky);color:white;font-size:14px;cursor:pointer;}
+.logout{background:#d9534f;} .clear-btn{background:var(--sand);}
+a{text-decoration:none;color:var(--forest);font-weight:bold;}
 </style>
 </head>
-
 <body>
-
 <header>🌱 Smart Farm - Alert History</header>
-
 <div class="controls">
-<button onclick="downloadCSV()">Download CSV</button>
-<button class="logout" onclick="logout()">Logout</button><br>
-<a href="dashboard.html">← Back to Dashboard</a>
+  <a href="dashboard.html">← Dashboard</a>
+  <button onclick="downloadCSV()">⬇ Download CSV</button>
+  <button class="clear-btn" onclick="clearHistory()">🗑 Clear History</button>
+  <button class="logout" onclick="logout()">Logout</button>
 </div>
-
 <div class="container">
-<div class="card">
-<h3>📜 Past Alerts</h3>
-<div id="historyList"></div>
+  <div class="card">
+    <h3>📜 Past Alerts</h3>
+    <div id="historyList"><div class="empty">Loading...</div></div>
+  </div>
 </div>
-</div>
-
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyDusRSoUQ7rM4HCZXUdMOY_zBr5a4mpLYw",
-  authDomain: "farm-demo-f693c.firebaseapp.com",
-  databaseURL: "https://farm-demo-f693c-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "farm-demo-f693c"
-};
+const SUPABASE_URL = "https://igkzwbazvotgexzjeoxb.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlna3p3YmF6dm90Z2V4emplb3hiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3OTYxOTIsImV4cCI6MjA5MjM3MjE5Mn0.xdXPVMeC12SszIwoh3PkM3xaEbsuj6HQDBxoEHL9TDo";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-firebase.initializeApp(firebaseConfig);
+sb.auth.getSession().then(({ data }) => {
+  if (!data.session) location.href = "login.html";
+});
 
-const auth = firebase.auth();
-const db = firebase.database();
+function logout() { sb.auth.signOut().then(() => location.href = "login.html"); }
 
-auth.onAuthStateChanged(user=>{
-  if(!user){
-    location.href="login.html";
+const historyList = document.getElementById("historyList");
+
+async function loadHistory() {
+  const { data, error } = await sb.from("alert_history").select("*")
+    .order("created_at", { ascending: false });
+  historyList.innerHTML = "";
+  if (error || !data || data.length === 0) {
+    historyList.innerHTML = '<div class="empty">No alerts recorded yet.</div>';
+    return;
   }
-});
-
-function logout(){
-  auth.signOut().then(()=>{
-    location.href="login.html";
+  data.forEach(a => {
+    const div = document.createElement("div");
+    const sev = a.severity || "INFO";
+    div.className = "alert " + sev;
+    div.innerHTML = `<span style="opacity:.75;font-size:11px;text-transform:uppercase">${sev}</span>
+      &nbsp;·&nbsp; ${a.type || "Unknown"}<br>
+      ${a.message || ""}<br>
+      <small style="opacity:.8">${new Date(a.created_at).toLocaleString()}</small>`;
+    historyList.appendChild(div);
   });
 }
 
-const historyList=document.getElementById("historyList");
-
-db.ref("farm/alertHistory").on("child_added",snap=>{
- const a=snap.val();
- if(!a) return;
-
- const div=document.createElement("div");
- div.className="alert "+(a.severity||"INFO");
-
- const time=a.time?new Date(a.time*1000).toLocaleString():"";
-
- div.innerHTML=`
-   ${a.type||""}<br>
-   ${a.message||""}<br>
-   <small>${time}</small>
- `;
- historyList.prepend(div);
-});
-
-function downloadCSV(){
- db.ref("farm/alertHistory").once("value",snap=>{
-  let csv="time,type,message,severity\n";
-  snap.forEach(c=>{
-   const d=c.val();
-   csv+=`"${new Date(d.time*1000).toISOString()}","${d.type}","${d.message}","${d.severity}"\n`;
-  });
-  const blob=new Blob([csv],{type:"text/csv"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="alert_history.csv";
-  a.click();
- });
+async function clearHistory() {
+  if (!confirm("Clear all alert history? This cannot be undone.")) return;
+  await sb.from("alert_history").delete().neq("id", 0);
+  historyList.innerHTML = '<div class="empty">History cleared.</div>';
 }
+
+async function downloadCSV() {
+  const { data } = await sb.from("alert_history").select("*").order("created_at", { ascending: true });
+  if (!data || !data.length) { alert("No history to download."); return; }
+  let csv = "time,type,message,severity\n";
+  data.forEach(d => {
+    const msg = (d.message || "").replace(/"/g, '""');
+    csv += `"${d.created_at}","${d.type || ""}","${msg}","${d.severity || ""}"\n`;
+  });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = "alert_history.csv"; a.click();
+}
+
+loadHistory();
 </script>
-
 </body>
 </html>
