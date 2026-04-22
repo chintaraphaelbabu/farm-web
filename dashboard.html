@@ -1,238 +1,348 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Agro Pump Guardian </title>
+<title>Agro Pump Guardian</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <style>
-:root{
- --sky:#8AA7A8;
- --forest:#3F441C;
- --cream:#ECE5D1;
- --sand:#B0A374;
- --orange:#D68737;
-}
-
-body{margin:0;font-family:Arial;background:var(--cream)}
-body.flash{animation:flash .6s infinite alternate}
+:root{--sky:#8AA7A8;--forest:#3F441C;--cream:#ECE5D1;--sand:#B0A374;--orange:#D68737;}
+*{box-sizing:border-box;}
+body{margin:0;font-family:Arial;background:var(--cream);}
+body.flash{animation:flash .6s infinite alternate;}
 @keyframes flash{from{background:white}to{background:#ff4d4d}}
-
-header{background:var(--forest);color:white;padding:15px;text-align:center;font-size:22px}
-
-.container{
- padding:20px;
- display:grid;
- grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
- gap:15px
-}
-
-.card{
- background:white;
- border-radius:12px;
- padding:15px;
- box-shadow:0 4px 10px rgba(0,0,0,.1)
-}
-
-.value{font-size:26px;color:var(--orange)}
-
-.controls{text-align:center;padding:20px}
-button{padding:12px 25px;border:none;border-radius:25px;margin:10px;font-size:16px;cursor:pointer}
-.on{background:var(--orange);color:white}
-.off{background:var(--sand)}
-.download{background:var(--sky);color:white}
-.logout{background:#d9534f;color:white}
-
-.graphs{
- padding:20px;
- display:grid;
- grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
- gap:20px
-}
-
-.alertBox{
- background:#d9534f;
- color:white;
- padding:15px;
- border-radius:10px;
- margin:20px;
- display:none
-}
-
-canvas{max-height:240px}
-
-#soundBtn{
- position:fixed;
- bottom:10px;
- right:10px;
- background:#444;
- color:white;
-}
+header{background:var(--forest);color:white;padding:15px;text-align:center;font-size:22px;}
+.container{padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px;}
+.card{background:white;border-radius:12px;padding:15px;box-shadow:0 4px 10px rgba(0,0,0,.1);}
+.card-label{color:#777;font-size:13px;margin-bottom:4px;}
+.value{font-size:26px;color:var(--orange);font-weight:bold;}
+.controls{text-align:center;padding:20px;}
+button{padding:12px 25px;border:none;border-radius:25px;margin:6px;font-size:15px;cursor:pointer;}
+.on{background:var(--orange);color:white;} .off{background:var(--sand);color:white;}
+.download{background:var(--sky);color:white;} .logout{background:#d9534f;color:white;}
+.pump-status{display:inline-block;margin-left:10px;padding:4px 14px;border-radius:20px;
+  font-weight:bold;font-size:14px;transition:background .3s;}
+.on-state{background:#5cb85c;color:white;} .off-state{background:#ccc;color:#555;}
+.graphs{padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;}
+.alertBox{background:#d9534f;color:white;padding:15px;border-radius:10px;margin:10px 20px;display:none;}
+.alertBox button{background:rgba(255,255,255,.25);color:white;padding:8px 18px;font-size:14px;}
+canvas{max-height:240px;}
+#soundBtn{position:fixed;bottom:15px;right:15px;background:#444;color:white;font-size:13px;padding:8px 16px;z-index:999;}
+.history-link{display:inline-block;margin-top:8px;text-decoration:none;color:var(--forest);font-weight:bold;font-size:14px;}
+#connStatus{position:fixed;top:10px;right:15px;font-size:12px;padding:4px 10px;border-radius:20px;background:#eee;}
+#connStatus.live{background:#5cb85c;color:white;} #connStatus.offline{background:#d9534f;color:white;}
 </style>
 </head>
-
 <body>
-
 <header>🌱 Agro Pump Guardian</header>
+<div id="connStatus">Connecting...</div>
 
 <div id="alertBox" class="alertBox">
-<b id="alertTitle"></b><br>
-<span id="alertMsg"></span><br><br>
-<button onclick="ack()">Acknowledge Alert</button>
+  <b id="alertTitle"></b><br>
+  <span id="alertMsg"></span><br><br>
+  <button onclick="ack()">✓ Acknowledge</button>
 </div>
 
 <div class="container">
-<div class="card">Flow<div class="value"><span id="flow">0</span> L/min</div></div>
-<div class="card">Current<div class="value"><span id="current">0</span> A</div></div>
-<div class="card">Voltage<div class="value"><span id="voltage">0</span> V</div></div>
-<div class="card">Efficiency<div class="value"><span id="efficiency">0</span> %</div></div>
+  <div class="card"><div class="card-label">Flow Rate</div><div class="value"><span id="flow">--</span> <small>L/min</small></div></div>
+  <div class="card"><div class="card-label">Current</div><div class="value"><span id="current">--</span> <small>A</small></div></div>
+  <div class="card"><div class="card-label">Voltage</div><div class="value"><span id="voltage">--</span> <small>V</small></div></div>
+  <div class="card"><div class="card-label">Efficiency</div><div class="value"><span id="efficiency">--</span> <small>%</small></div></div>
 </div>
 
 <div class="controls">
-<button class="on" onclick="pumpOn()">Pump ON</button>
-<button class="off" onclick="pumpOff()">Pump OFF</button>
-<button class="download" onclick="downloadCSV()">CSV</button>
-<button class="logout" onclick="logout()">Logout</button>
-<a href="history.html">Alert History</a><br>
-Pump: <span id="pump">OFF</span>
+  <button class="on"       onclick="pumpOn()">Pump ON</button>
+  <button class="off"      onclick="pumpOff()">Pump OFF</button>
+  <button class="download" onclick="downloadCSV()">⬇ CSV</button>
+  <button class="logout"   onclick="logout()">Logout</button>
+  <br>
+  Pump: <span id="pumpLabel" class="pump-status off-state">OFF</span>
+  <br>
+  <a href="history.html" class="history-link">📜 Alert History →</a>
 </div>
 
 <div class="graphs">
-<div class="card"><canvas id="flowChart"></canvas></div>
-<div class="card"><canvas id="currentChart"></canvas></div>
-<div class="card"><canvas id="voltageChart"></canvas></div>
-<div class="card"><canvas id="effChart"></canvas></div>
+  <div class="card"><canvas id="flowChart"></canvas></div>
+  <div class="card"><canvas id="currentChart"></canvas></div>
+  <div class="card"><canvas id="voltageChart"></canvas></div>
+  <div class="card"><canvas id="effChart"></canvas></div>
 </div>
 
-<button id="soundBtn">Enable Sound</button>
-<audio id="alarm" src="alarm.mp3" loop></audio>
-
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<button id="soundBtn">🔔 Enable Sound</button>
+<audio id="alarm" src="alarm.mp3" preload="auto" loop></audio>
 
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyDusRSoUQ7rM4HCZXUdMOY_zBr5a4mpLYw",
-  authDomain: "farm-demo-f693c.firebaseapp.com",
-  databaseURL: "https://farm-demo-f693c-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "farm-demo-f693c"
-};
+const SUPABASE_URL = "https://igkzwbazvotgexzjeoxb.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlna3p3YmF6dm90Z2V4emplb3hiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3OTYxOTIsImV4cCI6MjA5MjM3MjE5Mn0.xdXPVMeC12SszIwoh3PkM3xaEbsuj6HQDBxoEHL9TDo";
+const sb    = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const alarm = document.getElementById("alarm");
+const SOUND_PREF_KEY = "agro_sound_enabled";
+let soundUnlocked = localStorage.getItem(SOUND_PREF_KEY) === "1";
+let activeAlertId = null;
+const channelStates = { farm: false, pump: false, alerts: false };
+const ESP_TIMEOUT_MS = 20000;
+let lastEspLogAt = 0;
 
-firebase.initializeApp(firebaseConfig);
-
-const auth=firebase.auth();
-const db=firebase.database();
-const alarm=document.getElementById("alarm");
-
-let soundUnlocked=false;
-let activeAlertKey=null;
-
-/* AUTH */
-auth.onAuthStateChanged(user=>{
- if(!user) location.href="login.html";
-});
-
-function logout(){
- auth.signOut().then(()=>location.href="login.html");
-}
-
-/* SOUND */
-soundBtn.onclick=()=>{
- alarm.play().then(()=>{
-   alarm.pause();
-   alarm.currentTime=0;
-   soundUnlocked=true;
-   soundBtn.innerHTML="Sound Enabled ✔";
- });
-};
-
-/* CHART CREATOR */
-function createChart(id,label,color){
- return new Chart(document.getElementById(id),{
-  type:"line",
-  data:{labels:[],datasets:[{label:label,data:[],borderColor:color,tension:.3}]},
-  options:{animation:false}
- });
-}
-
-const fC=createChart("flowChart","Flow","#D68737");
-const cC=createChart("currentChart","Current","#3F441C");
-const vC=createChart("voltageChart","Voltage","#8AA7A8");
-const eC=createChart("effChart","Efficiency","#ff33aa");
-
-function push(chart,val,time){
- if(chart.data.labels.length>30){
-   chart.data.labels.shift();
-   chart.data.datasets[0].data.shift();
- }
- chart.data.labels.push(new Date(time*1000).toLocaleTimeString());
- chart.data.datasets[0].data.push(val);
- chart.update();
-}
-
-/* LOG LISTENER */
-db.ref("farm/logs").limitToLast(30).on("child_added",snap=>{
- const d=snap.val();
- flow.innerHTML=d.flowRate??0;
- current.innerHTML=d.current??0;
- voltage.innerHTML=d.voltage??0;
- efficiency.innerHTML=d.efficiency??0;
-
- if(d.time){
-   push(fC,d.flowRate,d.time);
-   push(cC,d.current,d.time);
-   push(vC,d.voltage,d.time);
-   push(eC,d.efficiency,d.time);
- }
-});
-
-/* PUMP */
-function pumpOn(){db.ref("farm/pump").set(1);}
-function pumpOff(){db.ref("farm/pump").set(0);}
-db.ref("farm/pump").on("value",s=>pump.innerHTML=s.val()==1?"ON":"OFF");
-
-/* ALERT */
-db.ref("farm/alerts").on("child_added",snap=>{
- const a=snap.val();
- activeAlertKey=snap.key;
-
- alertBox.style.display="block";
- alertTitle.innerHTML=a.type;
- alertMsg.innerHTML=a.message;
-
- if(a.severity==="CRITICAL"){
-  document.body.classList.add("flash");
-  if(soundUnlocked){
-   alarm.currentTime=0;
-   alarm.play();
+function markEspLogHeartbeat(ts) {
+  const parsed = Date.parse(ts || new Date().toISOString());
+  if (Number.isFinite(parsed)) {
+    lastEspLogAt = Math.max(lastEspLogAt, parsed);
+  } else {
+    lastEspLogAt = Date.now();
   }
- }
+}
+
+function isEspOnline() {
+  return lastEspLogAt > 0 && (Date.now() - lastEspLogAt) <= ESP_TIMEOUT_MS;
+}
+
+function refreshConnStatus() {
+  const el = document.getElementById("connStatus");
+  const connected = Object.values(channelStates).filter(Boolean).length;
+  if (connected === 3 && isEspOnline()) {
+    el.textContent = "● Live";
+    el.className = "live";
+    return;
+  }
+  if (connected > 0) {
+    el.textContent = lastEspLogAt > 0 ? "ESP Offline" : "Waiting ESP...";
+    el.className = "offline";
+    return;
+  }
+  el.textContent = "Offline";
+  el.className = "offline";
+}
+
+function setChannelState(channelKey, status) {
+  channelStates[channelKey] = status === "SUBSCRIBED";
+  refreshConnStatus();
+}
+
+sb.auth.getSession().then(({ data }) => {
+  if (!data.session) location.href = "login.html";
 });
 
-function ack(){
- if(!activeAlertKey)return;
- db.ref("farm/alerts/"+activeAlertKey).remove();
- alertBox.style.display="none";
- document.body.classList.remove("flash");
- alarm.pause();
- alarm.currentTime=0;
+function logout() { sb.auth.signOut().then(() => location.href = "login.html"); }
+
+function updateSoundBtn() {
+  document.getElementById("soundBtn").textContent = soundUnlocked
+    ? "🔔 Sound Enabled ✔"
+    : "🔔 Enable Sound";
 }
 
-/* CSV */
-function downloadCSV(){
- db.ref("farm/logs").once("value",snap=>{
-  let csv="time,flow,current,voltage,efficiency\n";
-  snap.forEach(c=>{
-   const d=c.val();
-   csv+=`${new Date(d.time*1000)},${d.flowRate},${d.current},${d.voltage},${d.efficiency}\n`;
+async function unlockSound() {
+  try {
+    alarm.muted = true;
+    await alarm.play();
+    alarm.pause();
+    alarm.currentTime = 0;
+    alarm.muted = false;
+    soundUnlocked = true;
+    localStorage.setItem(SOUND_PREF_KEY, "1");
+  } catch {
+    soundUnlocked = false;
+  }
+  updateSoundBtn();
+}
+
+document.getElementById("soundBtn").onclick = () => unlockSound();
+document.addEventListener("pointerdown", () => { if (!soundUnlocked) unlockSound(); }, { once: true });
+document.addEventListener("keydown", () => { if (!soundUnlocked) unlockSound(); }, { once: true });
+updateSoundBtn();
+
+function makeChart(id, label, color) {
+  return new Chart(document.getElementById(id), {
+    type: "line",
+    data: { labels: [], datasets: [{ label, data: [], borderColor: color,
+      backgroundColor: color + "22", fill: true, tension: .3, pointRadius: 2 }] },
+    options: { animation: false, responsive: true,
+      plugins: { legend: { display: true } },
+      scales: { y: { beginAtZero: true } } }
   });
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob([csv]));
-  a.download="farm.csv";
-  a.click();
- });
 }
-</script>
 
+const fC = makeChart("flowChart",    "Flow (L/min)",   "#D68737");
+const cC = makeChart("currentChart", "Current (A)",    "#3F441C");
+const vC = makeChart("voltageChart", "Voltage (V)",    "#8AA7A8");
+const eC = makeChart("effChart",     "Efficiency (%)", "#ff33aa");
+
+function toNum(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+const WATER_DENSITY = 1000;
+const GRAVITY = 9.81;
+const DEFAULT_HEAD_M = 1000;
+
+function calculateEfficiency(flowRateLMin, current, voltage, headMeters = DEFAULT_HEAD_M) {
+  const electricalPower = toNum(current) * toNum(voltage);
+  if (electricalPower <= 0) return 0;
+  const flowM3s = toNum(flowRateLMin) / 1000 / 60;
+  const hydraulicPower = WATER_DENSITY * GRAVITY * flowM3s * toNum(headMeters);
+  const efficiency = (hydraulicPower / electricalPower) * 100;
+  return Math.max(0, efficiency);
+}
+
+function pushChart(chart, val, ts) {
+  if (chart.data.labels.length > 30) {
+    chart.data.labels.shift();
+    chart.data.datasets[0].data.shift();
+  }
+  chart.data.labels.push(new Date(ts).toLocaleTimeString());
+  chart.data.datasets[0].data.push(val);
+  chart.update();
+}
+
+function applyLog(d) {
+  const flow = toNum(d.flow_rate);
+  const current = toNum(d.current);
+  const voltage = toNum(d.voltage);
+  const head = toNum(d.head_m ?? d.head ?? DEFAULT_HEAD_M);
+  const efficiency = calculateEfficiency(flow, current, voltage, head);
+  const ts = d.created_at || new Date().toISOString();
+
+  markEspLogHeartbeat(ts);
+  refreshConnStatus();
+
+  document.getElementById("flow").textContent       = flow.toFixed(2);
+  document.getElementById("current").textContent    = current.toFixed(2);
+  document.getElementById("voltage").textContent    = voltage.toFixed(1);
+  document.getElementById("efficiency").textContent = efficiency.toFixed(1);
+  pushChart(fC, flow,       ts);
+  pushChart(cC, current,    ts);
+  pushChart(vC, voltage,    ts);
+  pushChart(eC, efficiency, ts);
+}
+
+async function loadInitialLogs() {
+  const { data } = await sb.from("farm_logs").select("*")
+    .order("created_at", { ascending: true }).limit(30);
+  if (data) data.forEach(applyLog);
+}
+
+sb.channel("farm_logs_rt")
+  .on("postgres_changes", { event: "INSERT", schema: "public", table: "farm_logs" },
+    payload => applyLog(payload.new))
+  .subscribe(status => setChannelState("farm", status));
+
+function applyPump(isOn) {
+  const label = document.getElementById("pumpLabel");
+  label.textContent = isOn ? "ON" : "OFF";
+  label.className = "pump-status " + (isOn ? "on-state" : "off-state");
+}
+
+async function loadPumpState() {
+  const { data } = await sb.from("pump_state").select("is_on").eq("id", 1).single();
+  if (data) applyPump(data.is_on);
+}
+
+sb.channel("pump_state_rt")
+  .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pump_state" },
+    payload => applyPump(payload.new.is_on))
+  .subscribe(status => setChannelState("pump", status));
+
+async function pumpOn()  {
+  await sb.from("pump_state").update({ is_on: true,  updated_at: new Date().toISOString() }).eq("id", 1);
+}
+async function pumpOff() {
+  await sb.from("pump_state").update({ is_on: false, updated_at: new Date().toISOString() }).eq("id", 1);
+}
+
+sb.channel("active_alerts_rt")
+  .on("postgres_changes", { event: "INSERT", schema: "public", table: "active_alerts" },
+    payload => showAlert(payload.new))
+  .on("postgres_changes", { event: "UPDATE", schema: "public", table: "active_alerts" },
+    payload => showAlert(payload.new))
+  .on("postgres_changes", { event: "DELETE", schema: "public", table: "active_alerts" },
+    payload => {
+      if (!activeAlertId || payload.old?.id === activeAlertId) clearAlertUI();
+    })
+  .subscribe(status => setChannelState("alerts", status));
+
+async function loadActiveAlert() {
+  const { data } = await sb.from("active_alerts").select("*")
+    .order("created_at", { ascending: false }).limit(1);
+  if (data && data.length) showAlert(data[0]);
+  else clearAlertUI();
+}
+
+function showAlert(a) {
+  activeAlertId = a.id;
+  document.getElementById("alertBox").style.display = "block";
+  document.getElementById("alertTitle").textContent = a.type    || "Alert";
+  document.getElementById("alertMsg").textContent   = a.message || "";
+  if (a.severity === "CRITICAL" || a.severity === "HIGH") {
+    document.body.classList.add("flash");
+    if (soundUnlocked) {
+      alarm.currentTime = 0;
+      alarm.play().catch(() => {
+        soundUnlocked = false;
+        updateSoundBtn();
+      });
+    }
+  }
+}
+
+function clearAlertUI() {
+  document.getElementById("alertBox").style.display = "none";
+  document.body.classList.remove("flash");
+  alarm.pause(); alarm.currentTime = 0; activeAlertId = null;
+}
+
+async function ack() {
+  if (!activeAlertId) return;
+  const { data: active, error: fetchErr } = await sb
+    .from("active_alerts")
+    .select("id,type,message,severity,created_at")
+    .eq("id", activeAlertId)
+    .single();
+
+  if (fetchErr) {
+    alert("Failed to load active alert before acknowledge.");
+    return;
+  }
+
+  const { error: insertErr } = await sb.from("alert_history").insert({
+    type: active.type,
+    message: active.message,
+    severity: active.severity,
+    created_at: active.created_at
+  });
+
+  if (insertErr) {
+    alert("Failed to move alert to history.");
+    return;
+  }
+
+  const { error: deleteErr } = await sb.from("active_alerts").delete().eq("id", activeAlertId);
+  if (deleteErr) {
+    alert("Alert archived but could not be removed from active list.");
+    return;
+  }
+  clearAlertUI();
+}
+
+async function downloadCSV() {
+  const { data } = await sb.from("farm_logs").select("*").order("created_at", { ascending: true });
+  if (!data || !data.length) { alert("No data yet."); return; }
+  let csv = "time,flow_rate,current,voltage,efficiency\n";
+  data.forEach(d => {
+    const flow = toNum(d.flow_rate);
+    const current = toNum(d.current);
+    const voltage = toNum(d.voltage);
+    const head = toNum(d.head_m ?? d.head ?? DEFAULT_HEAD_M);
+    const efficiency = calculateEfficiency(flow, current, voltage, head);
+    csv += `${d.created_at},${flow},${current},${voltage},${efficiency.toFixed(2)}\n`;
+  });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = "farm_data.csv"; a.click();
+}
+
+loadInitialLogs();
+loadPumpState();
+loadActiveAlert();
+setInterval(refreshConnStatus, 3000);
+</script>
 </body>
 </html>
