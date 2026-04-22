@@ -19,6 +19,13 @@ header{background:var(--forest);color:white;padding:15px;text-align:center;font-
 button{padding:12px 25px;border:none;border-radius:25px;margin:6px;font-size:15px;cursor:pointer;}
 .on{background:var(--orange);color:white;} .off{background:var(--sand);color:white;}
 .download{background:var(--sky);color:white;} .logout{background:#d9534f;color:white;}
+.pump-toggle-wrap{display:inline-flex;align-items:center;gap:10px;margin:6px 0;}
+.switch{position:relative;display:inline-block;width:56px;height:30px;}
+.switch input{opacity:0;width:0;height:0;}
+.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#bbb;transition:.2s;border-radius:30px;}
+.slider:before{position:absolute;content:"";height:24px;width:24px;left:3px;bottom:3px;background:white;transition:.2s;border-radius:50%;}
+.switch input:checked + .slider{background:#5cb85c;}
+.switch input:checked + .slider:before{transform:translateX(26px);}
 .pump-status{display:inline-block;margin-left:10px;padding:4px 14px;border-radius:20px;
   font-weight:bold;font-size:14px;transition:background .3s;}
 .on-state{background:#5cb85c;color:white;} .off-state{background:#ccc;color:#555;}
@@ -50,8 +57,13 @@ canvas{max-height:240px;}
 </div>
 
 <div class="controls">
-  <button class="on"       onclick="pumpOn()">Pump ON</button>
-  <button class="off"      onclick="pumpOff()">Pump OFF</button>
+  <div class="pump-toggle-wrap">
+    <span>Pump Control</span>
+    <label class="switch" aria-label="Pump power toggle">
+      <input id="pumpToggle" type="checkbox" onchange="onPumpToggle(this.checked)">
+      <span class="slider"></span>
+    </label>
+  </div>
   <button class="download" onclick="downloadCSV()">⬇ CSV</button>
   <button class="logout"   onclick="logout()">Logout</button>
   <br>
@@ -227,6 +239,8 @@ sb.channel("farm_logs_rt")
 
 function applyPump(isOn) {
   const label = document.getElementById("pumpLabel");
+  const toggle = document.getElementById("pumpToggle");
+  if (toggle) toggle.checked = !!isOn;
   label.textContent = isOn ? "ON" : "OFF";
   label.className = "pump-status " + (isOn ? "on-state" : "off-state");
 }
@@ -241,11 +255,15 @@ sb.channel("pump_state_rt")
     payload => applyPump(payload.new.is_on))
   .subscribe(status => setChannelState("pump", status));
 
-async function pumpOn()  {
-  await sb.from("pump_state").update({ is_on: true,  updated_at: new Date().toISOString() }).eq("id", 1);
-}
-async function pumpOff() {
-  await sb.from("pump_state").update({ is_on: false, updated_at: new Date().toISOString() }).eq("id", 1);
+async function onPumpToggle(isOn) {
+  const { error } = await sb
+    .from("pump_state")
+    .update({ is_on: !!isOn, updated_at: new Date().toISOString() })
+    .eq("id", 1);
+  if (error) {
+    alert("Failed to update pump state.");
+    loadPumpState();
+  }
 }
 
 sb.channel("active_alerts_rt")
