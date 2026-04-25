@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Agro Pump Guardian</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 :root{--sky:#8AA7A8;--forest:#3F441C;--cream:#ECE5D1;--sand:#B0A374;--orange:#D68737;}
 *{box-sizing:border-box;}
-body{margin:0;font-family:Arial;background:var(--cream);}
+body{margin:0;font-family:Arial;background:var(--cream);overflow-x:hidden;}
 body.flash{animation:flash .6s infinite alternate;}
 @keyframes flash{from{background:white}to{background:#ff4d4d}}
 header{background:var(--forest);color:white;padding:15px;text-align:center;font-size:22px;}
@@ -29,7 +31,7 @@ button{padding:12px 25px;border:none;border-radius:25px;margin:6px;font-size:15p
 .pump-status{display:inline-block;margin-left:10px;padding:4px 14px;border-radius:20px;
   font-weight:bold;font-size:14px;transition:background .3s;}
 .on-state{background:#5cb85c;color:white;} .off-state{background:#ccc;color:#555;}
-.graphs{padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;}
+.graphs{padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;}
 .alertBox{background:#d9534f;color:white;padding:15px;border-radius:10px;margin:10px 20px;display:none;}
 .alertBox button{background:rgba(255,255,255,.25);color:white;padding:8px 18px;font-size:14px;}
 canvas{max-height:240px;}
@@ -37,6 +39,26 @@ canvas{max-height:240px;}
 .history-link{display:inline-block;margin-top:8px;text-decoration:none;color:var(--forest);font-weight:bold;font-size:14px;}
 #connStatus{position:fixed;top:10px;right:15px;font-size:12px;padding:4px 10px;border-radius:20px;background:#eee;}
 #connStatus.live{background:#5cb85c;color:white;} #connStatus.offline{background:#d9534f;color:white;}
+
+@media (max-width: 768px) {
+  header{font-size:18px;padding:12px 54px 12px 12px;}
+  #connStatus{top:8px;right:8px;font-size:11px;padding:3px 8px;}
+  .container{padding:12px;grid-template-columns:1fr;gap:10px;}
+  .graphs{padding:12px;grid-template-columns:1fr;gap:12px;}
+  .controls{padding:12px;}
+  .pump-toggle-wrap{width:100%;justify-content:center;}
+  .controls button{width:100%;max-width:320px;}
+  .card{padding:12px;}
+  .value{font-size:24px;}
+  #soundBtn{right:10px;bottom:10px;}
+  .alertBox{margin:8px 12px;}
+}
+
+@media (max-width: 420px) {
+  .value{font-size:22px;}
+  .controls button{font-size:14px;padding:11px 16px;}
+  canvas{max-height:210px;}
+}
 </style>
 </head>
 <body>
