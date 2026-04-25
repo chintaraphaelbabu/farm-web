@@ -2,12 +2,13 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smart Farm - Alert History</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--sky:#8AA7A8;--forest:#3F441C;--cream:#ECE5D1;--sand:#B0A374;--orange:#D68737;}
 *{box-sizing:border-box;}
-body{margin:0;font-family:Arial;background:var(--cream);}
+body{margin:0;font-family:Arial;background:var(--cream);overflow-x:hidden;}
 header{background:var(--forest);color:white;padding:15px;text-align:center;font-size:22px;}
 .container{padding:20px;}
 .card{background:white;border-radius:12px;padding:15px;margin-bottom:15px;box-shadow:0 4px 10px rgba(0,0,0,.1);}
@@ -19,6 +20,21 @@ header{background:var(--forest);color:white;padding:15px;text-align:center;font-
 button{padding:10px 20px;border:none;border-radius:20px;background:var(--sky);color:white;font-size:14px;cursor:pointer;}
 .logout{background:#d9534f;} .clear-btn{background:var(--sand);}
 a{text-decoration:none;color:var(--forest);font-weight:bold;}
+
+@media (max-width: 768px) {
+  header{font-size:18px;padding:12px;}
+  .container{padding:12px;}
+  .controls{margin:12px;gap:8px;}
+  .controls a,
+  .controls button{width:100%;max-width:340px;}
+  .card{padding:12px;}
+  .alert{font-size:14px;line-height:1.35;word-break:break-word;}
+}
+
+@media (max-width: 420px) {
+  button{font-size:13px;padding:10px 14px;}
+  .alert{padding:10px;}
+}
 </style>
 </head>
 <body>
