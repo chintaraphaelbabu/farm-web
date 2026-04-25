@@ -184,7 +184,7 @@ function toNum(v) {
 
 const WATER_DENSITY = 1000;
 const GRAVITY = 9.81;
-const DEFAULT_HEAD_M = 1000;
+const DEFAULT_HEAD_M = 100;
 
 function calculateEfficiency(flowRateLMin, current, voltage, headMeters = DEFAULT_HEAD_M) {
   const electricalPower = toNum(current) * toNum(voltage);
